@@ -24,10 +24,11 @@ jobs:
           cache: npm
 
       - name: Setup Java
+        id: setup-java
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       - name: Show toolchain info
         run: |
@@ -54,9 +55,13 @@ jobs:
           cat android/local.properties
 
       - name: Build debug APK
+        env:
+          JAVA_HOME: ${{ steps.setup-java.outputs.path }}
+          ORG_GRADLE_JAVA_HOME: ${{ steps.setup-java.outputs.path }}
         run: |
           chmod +x android/gradlew
           cd android
+          ./gradlew -version
           ./gradlew assembleDebug
 
       - name: Upload APK artifact
