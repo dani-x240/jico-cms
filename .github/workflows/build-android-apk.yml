@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
@@ -46,6 +46,7 @@ jobs:
         run: |
           echo "JAVA_HOME=$JAVA_HOME"
           java -version
+          chmod +x android/gradlew
           cd android
           ./gradlew -version
 
