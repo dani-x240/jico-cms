@@ -1,5 +1,8 @@
 name: Build Android APK
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   workflow_dispatch:
   push:
@@ -12,19 +15,27 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
+
+      - name: Show toolchain info
+        run: |
+          node -v
+          npm -v
+          java -version
+          echo "ANDROID_HOME=${ANDROID_HOME}"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
 
       - name: Install dependencies
         run: npm ci
@@ -34,7 +45,13 @@ jobs:
 
       - name: Prepare Android local.properties
         run: |
-          echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
+          SDK_PATH="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          if [ ! -d "$SDK_PATH" ]; then
+            echo "::error::Android SDK directory not found at $SDK_PATH"
+            exit 1
+          fi
+          echo "sdk.dir=$SDK_PATH" > android/local.properties
+          cat android/local.properties
 
       - name: Build debug APK
         run: |
