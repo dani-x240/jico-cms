@@ -1,0 +1,115 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'APK version name'
+        required: false
+        default: '1.0.0'
+      version_code:
+        description: 'APK version code'
+        required: false
+        default: '1'
+  push:
+    branches:
+      - main
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Set up Java
+        id: setup-java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Verify Java and Gradle JVM
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
+          cd android
+          ./gradlew -version
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Detect Android signing secrets
+        id: signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [[ -n "${ANDROID_KEYSTORE_BASE64:-}" && -n "${ANDROID_KEYSTORE_PASSWORD:-}" && -n "${ANDROID_KEY_ALIAS:-}" && -n "${ANDROID_KEY_PASSWORD:-}" ]]; then
+            echo "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > android/release-keystore.jks
+            echo "signing_available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signing_available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build signed release APK
+        if: ${{ steps.signing.outputs.signing_available == 'true' }}
+        working-directory: android
+        env:
+          JAVA_HOME: ${{ steps.setup-java.outputs.path }}
+          ORG_GRADLE_JAVA_HOME: ${{ steps.setup-java.outputs.path }}
+          RELEASE_STORE_FILE: ${{ github.workspace }}/android/release-keystore.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_NAME: ${{ github.event.inputs.version_name }}
+          VERSION_CODE: ${{ github.event.inputs.version_code }}
+        run: |
+          VERSION_NAME="${VERSION_NAME:-1.0.0}"
+          VERSION_CODE="${VERSION_CODE:-${GITHUB_RUN_NUMBER}}"
+          if [[ -f ./gradlew ]]; then
+            ./gradlew clean assembleRelease
+          else
+            gradle clean assembleRelease
+          fi
+
+      - name: Build debug APK
+        if: ${{ steps.signing.outputs.signing_available != 'true' }}
+        working-directory: android
+        env:
+          JAVA_HOME: ${{ steps.setup-java.outputs.path }}
+          ORG_GRADLE_JAVA_HOME: ${{ steps.setup-java.outputs.path }}
+          VERSION_NAME: ${{ github.event.inputs.version_name }}
+          VERSION_CODE: ${{ github.event.inputs.version_code }}
+        run: |
+          VERSION_NAME="${VERSION_NAME:-1.0.0}"
+          VERSION_CODE="${VERSION_CODE:-${GITHUB_RUN_NUMBER}}"
+          if [[ -f ./gradlew ]]; then
+            ./gradlew clean assembleDebug
+          else
+            gradle clean assembleDebug
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jinja-college-cms-apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
