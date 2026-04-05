@@ -38,7 +38,7 @@ jobs:
           echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Build web and sync Capacitor
         run: npm run build:mobile
