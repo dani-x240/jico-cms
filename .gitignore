@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+build/
+dist/
+installer_output/
+release/
+*.log
+build_output.log
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+keys/
+*.jks
+*.keystore
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.vscode/*.log
+
+# Android generated output
+android/.gradle/
+android/build/
+android/app/build/
+
+# Packaging mirrors generated web assets
+APPFLOW-UPLOAD/android/app/src/main/assets/public/
+APPFLOW-UPLOAD/android/app/build/
+CMS-APK/android-appflow/android/app/src/main/assets/public/
+CMS-APK/android-appflow/android/app/build/
+
+# Local backups and temporary snapshots
+snapshot-*/
+tmp_apk_extract/
+SUPPORT/state-lock/snapshot-*/
+SUPPORT/state-lock/*.zip
+
+# Local tooling
+tools/
