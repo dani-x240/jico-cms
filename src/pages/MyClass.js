@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserCheck, UserX, Clock, AlertCircle } from 'lucide-react';
 import { supabase } from '../utils/supabase';
+import { matchesAnyAssignedClass, parseAssignedClasses } from '../utils/classAssignments';
 
 export default function MyClass({ user }) {
+  const assignedClasses = parseAssignedClasses(user.class_assigned);
+  const [activeClass, setActiveClass] = useState(assignedClasses[0] || '');
   const [stats, setStats] = useState({
     total: 0,
     present: 0,
@@ -16,37 +19,65 @@ export default function MyClass({ user }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user.class_assigned) {
+    if (assignedClasses.length > 0) {
+      if (!activeClass || !assignedClasses.includes(activeClass)) {
+        setActiveClass(assignedClasses[0]);
+      }
       loadStats();
     }
-  }, [user.class_assigned]);
+  }, [user.class_assigned, activeClass]);
 
   const loadStats = async () => {
     const today = new Date().toISOString().split('T')[0];
+
+    const getStudentCategory = (student) => {
+      const percentage = typeof student.attendance_percentage === 'number'
+        ? student.attendance_percentage
+        : Number(student.attendance_percentage);
+
+      if (Number.isFinite(percentage)) {
+        if (percentage >= 90) return 'green';
+        if (percentage >= 70) return 'orange';
+        return 'red';
+      }
+
+      const normalizedCategory = `${student.category || ''}`.trim().toLowerCase();
+      if (normalizedCategory === 'green' || normalizedCategory === 'orange' || normalizedCategory === 'red') {
+        return normalizedCategory;
+      }
+
+      return 'green';
+    };
     
     const { data: students } = await supabase
       .from('students')
-      .select('*')
-      .eq('class', user.class_assigned);
+      .select('*');
+
+    const filteredStudents = (students || []).filter(
+      (student) => matchesAnyAssignedClass(student.class_name || student.class || '', [activeClass])
+    );
     
     const { data: attendance } = await supabase
       .from('attendance')
       .select('*')
-      .eq('attendance_date', today)
-      .eq('class_name', user.class_assigned);
+      .eq('attendance_date', today);
+
+    const filteredAttendance = (attendance || []).filter((record) =>
+      matchesAnyAssignedClass(record.class_name || record.class || '', [activeClass])
+    );
     
-    const present = attendance?.filter(a => a.status === 'present').length || 0;
-    const absent = attendance?.filter(a => a.status === 'absent').length || 0;
-    const late = attendance?.filter(a => a.status === 'late').length || 0;
+    const present = filteredAttendance.filter(a => a.status === 'present').length || 0;
+    const absent = filteredAttendance.filter(a => a.status === 'absent').length || 0;
+    const late = filteredAttendance.filter(a => a.status === 'late').length || 0;
     
-    const green = students?.filter(s => s.category === 'green').length || 0;
-    const orange = students?.filter(s => s.category === 'orange').length || 0;
-    const red = students?.filter(s => s.category === 'red').length || 0;
+    const green = filteredStudents?.filter(s => getStudentCategory(s) === 'green').length || 0;
+    const orange = filteredStudents?.filter(s => getStudentCategory(s) === 'orange').length || 0;
+    const red = filteredStudents?.filter(s => getStudentCategory(s) === 'red').length || 0;
     
-    const redList = students?.filter(s => s.category === 'red') || [];
+    const redList = filteredStudents?.filter(s => getStudentCategory(s) === 'red') || [];
     
     setStats({
-      total: students?.length || 0,
+      total: filteredStudents?.length || 0,
       present,
       absent,
       late,
@@ -58,7 +89,7 @@ export default function MyClass({ user }) {
     setLoading(false);
   };
 
-  if (!user.class_assigned) {
+  if (assignedClasses.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-gray)' }}>
         You need to be assigned a class to view this page.
@@ -73,8 +104,19 @@ export default function MyClass({ user }) {
   return (
     <div>
       <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '24px' }}>
-        My Class - {user.class_assigned}
+        My Class - {activeClass}
       </h2>
+
+      {assignedClasses.length > 1 && (
+        <div style={{ marginBottom: '16px' }}>
+          <label className="form-label">Class/Stream</label>
+          <select className="form-input" value={activeClass} onChange={(e) => setActiveClass(e.target.value)} style={{ maxWidth: '260px' }}>
+            {assignedClasses.map((className) => (
+              <option key={className} value={className}>{className}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="stats-grid" style={{ marginBottom: '24px' }}>
         <div className="stat-card">
@@ -145,7 +187,7 @@ export default function MyClass({ user }) {
             {redStudents.map(student => (
               <div key={student.id} style={{ padding: '12px', background: '#fef2f2', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontWeight: '600', marginBottom: '4px' }}>{student.name}</div>
+                  <div style={{ fontWeight: '600', marginBottom: '4px' }}>{student.full_name || student.name}</div>
                   <div style={{ fontSize: '13px', color: 'var(--text-gray)' }}>Parent: {student.parent_phone}</div>
                 </div>
                 <span className="badge" style={{ background: '#ef4444', color: 'white' }}>RED</span>

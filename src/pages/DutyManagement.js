@@ -243,7 +243,7 @@ export default function DutyManagement() {
                       <div>
                         <div style={{ fontWeight: '600' }}>{teacher.name}</div>
                         <div style={{ fontSize: '12px', color: 'var(--text-gray)' }}>
-                          {teacher.class_assigned ? `Class Teacher: ${teacher.class_assigned}` : 'Subject Teacher'}
+                          {teacher.class_teacher_assigned ? `Class Teacher: ${teacher.class_teacher_assigned}` : 'Subject Teacher'}
                         </div>
                       </div>
                     </label>

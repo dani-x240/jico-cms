@@ -1,36 +1,109 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
-import { FileText, Download, Eye, AlertCircle, TrendingUp, Search } from 'lucide-react';
+import { FileText, Download, Eye, AlertCircle, TrendingUp, Search, Trash2 } from 'lucide-react';
 
-export default function AllReports() {
+export default function AllReports({ selectedClassFilter }) {
   const [consolidatedReports, setConsolidatedReports] = useState([]);
   const [streamReports, setStreamReports] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [viewMode, setViewMode] = useState('consolidated');
   const [loading, setLoading] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [classFilter, setClassFilter] = useState(selectedClassFilter || '');
+  const [streamFilter, setStreamFilter] = useState('');
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (selectedClassFilter) {
+      setClassFilter(selectedClassFilter);
+    }
+  }, [selectedClassFilter]);
+
   const fetchData = async () => {
+    setLoading(true);
     const [consolidatedRes, streamRes, studentsRes] = await Promise.all([
-      supabase.from('consolidated_reports').select('*').order('week_start', { ascending: false }),
-      supabase.from('stream_reports').select('*').order('report_date', { ascending: false }),
+      supabase.schema('public').from('consolidated_reports').select('*').order('week_start', { ascending: false }),
+      supabase.schema('public').from('stream_reports').select('*').order('report_date', { ascending: false }),
       supabase.from('students').select('*')
     ]);
+
     setConsolidatedReports(consolidatedRes.data || []);
     setStreamReports(streamRes.data || []);
     setStudents(studentsRes.data || []);
     setLoading(false);
   };
 
+  const normalizeClassValue = (value = '') => value.trim().toLowerCase();
+
+  const classMatchesFilter = (value = '') => {
+    const normalizedValue = normalizeClassValue(value);
+    const normalizedFilter = normalizeClassValue(classFilter);
+
+    if (!normalizedFilter) return true;
+    return normalizedValue === normalizedFilter || normalizedValue.startsWith(`${normalizedFilter} `);
+  };
+
+  const splitStudentClassAndStream = (value = '') => {
+    const cleanValue = (value || '').trim();
+    if (!cleanValue) {
+      return { classPart: '', streamPart: '' };
+    }
+
+    const parts = cleanValue.split(/\s+/).filter(Boolean);
+    if (parts.length <= 1) {
+      return { classPart: cleanValue, streamPart: '' };
+    }
+
+    return {
+      classPart: parts[0],
+      streamPart: parts.slice(1).join(' ')
+    };
+  };
+
+  const availableClasses = [...new Set(streamReports.map((report) => report.class_name).filter(Boolean))].sort();
+
+  const availableStreams = [...new Set(
+    students
+      .map((student) => splitStudentClassAndStream(student.class_name || student.class || '').streamPart)
+      .filter(Boolean)
+  )].sort();
+
+  const filteredConsolidated = consolidatedReports.filter((report) => {
+    const matchesSearch = !searchTerm || (report.duty_head_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFrom = !dateFrom || new Date(report.week_start) >= new Date(dateFrom);
+    const matchesTo = !dateTo || new Date(report.week_start) <= new Date(dateTo);
+    return matchesSearch && matchesFrom && matchesTo;
+  });
+
+  const filteredStream = streamReports.filter((report) => {
+    const matchesSearch = !searchTerm ||
+      (report.teacher_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (report.class_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesClass = classMatchesFilter(report.class_name || '');
+    const matchesFrom = !dateFrom || new Date(report.report_date) >= new Date(dateFrom);
+    const matchesTo = !dateTo || new Date(report.report_date) <= new Date(dateTo);
+    return matchesSearch && matchesClass && matchesFrom && matchesTo;
+  });
+
   const getRedStudents = () => {
-    return students.filter(s => (s.attendance_percentage || 0) < 70);
+    return students.filter((student) => {
+      const attendance = student.attendance_percentage || 0;
+      const studentClass = student.class_name || student.class || '';
+      const streamName = splitStudentClassAndStream(studentClass).streamPart;
+
+      if (streamFilter && streamName !== streamFilter) {
+        return false;
+      }
+
+      return attendance < 70 && classMatchesFilter(studentClass);
+    });
   };
 
   const exportExcel = (data, filename) => {
@@ -38,11 +111,12 @@ export default function AllReports() {
     if (Array.isArray(data)) {
       csv = [
         ['Admission No', 'Name', 'Class', 'Attendance', 'Parent Phone'].join(','),
-        ...data.map(s => [s.admission_no, s.full_name, s.class_name, (s.attendance_percentage || 0) + '%', s.parent_phone].join(','))
+        ...data.map((s) => [s.admission_no, s.full_name, s.class_name, `${s.attendance_percentage || 0}%`, s.parent_phone].join(','))
       ].join('\n');
     } else {
       csv = `Report: ${data.duty_head_name || data.teacher_name}\nDate: ${data.week_start || data.report_date}\nNotes: ${data.consolidated_notes || data.summary}`;
     }
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -51,23 +125,44 @@ export default function AllReports() {
     a.click();
   };
 
-  const filteredConsolidated = consolidatedReports.filter(r => {
-    const matchesSearch = !searchTerm || r.duty_head_name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFrom = !dateFrom || new Date(r.week_start) >= new Date(dateFrom);
-    const matchesTo = !dateTo || new Date(r.week_start) <= new Date(dateTo);
-    return matchesSearch && matchesFrom && matchesTo;
-  });
+  const deleteConsolidatedReport = async (reportId) => {
+    if (!window.confirm('Delete this consolidated report?')) {
+      return;
+    }
 
-  const filteredStream = streamReports.filter(r => {
-    const matchesSearch = !searchTerm || r.teacher_name.toLowerCase().includes(searchTerm.toLowerCase()) || r.class_name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFrom = !dateFrom || new Date(r.report_date) >= new Date(dateFrom);
-    const matchesTo = !dateTo || new Date(r.report_date) <= new Date(dateTo);
-    return matchesSearch && matchesFrom && matchesTo;
-  });
+    const { error } = await supabase.schema('public').from('consolidated_reports').delete().eq('id', reportId);
+    if (error) {
+      alert(`Failed to delete report: ${error.message}`);
+      return;
+    }
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '40px' }}>Loading reports...</div>;
+    setConsolidatedReports((previous) => previous.filter((report) => report.id !== reportId));
+    if (selectedReport?.id === reportId) {
+      setSelectedReport(null);
+    }
+  };
+
+  const deleteStreamReport = async (reportId) => {
+    if (!window.confirm('Delete this stream report?')) {
+      return;
+    }
+
+    const { error } = await supabase.schema('public').from('stream_reports').delete().eq('id', reportId);
+    if (error) {
+      alert(`Failed to delete report: ${error.message}`);
+      return;
+    }
+
+    setStreamReports((previous) => previous.filter((report) => report.id !== reportId));
+  };
+
+  if (loading) {
+    return <div style={{ textAlign: 'center', padding: '40px' }}>Loading reports...</div>;
+  }
 
   const redStudents = getRedStudents();
+  const recentStreamSubmissions = filteredStream.slice(0, 5);
+  const hasFilters = Boolean(searchTerm || dateFrom || dateTo || classFilter || streamFilter);
 
   return (
     <div>
@@ -83,17 +178,61 @@ export default function AllReports() {
             Students Needing Attention
           </button>
         </div>
-        
+
         {viewMode !== 'attention' && (
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
               <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-gray)' }} />
               <input type="text" className="form-input" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ paddingLeft: '40px' }} />
             </div>
-            <input type="date" className="form-input" placeholder="From" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: '150px' }} />
-            <input type="date" className="form-input" placeholder="To" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: '150px' }} />
+            <select className="form-input" value={classFilter} onChange={(e) => setClassFilter(e.target.value)} style={{ width: '220px' }}>
+              <option value="">All Classes</option>
+              {availableClasses.map((className) => (
+                <option key={className} value={className}>{className}</option>
+              ))}
+            </select>
+            <input type="date" className="form-input" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: '150px' }} />
+            <input type="date" className="form-input" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: '150px' }} />
           </div>
         )}
+
+        {viewMode === 'attention' && (
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <select className="form-input" value={classFilter} onChange={(e) => setClassFilter(e.target.value)} style={{ width: '220px' }}>
+              <option value="">All Classes</option>
+              {availableClasses.map((className) => (
+                <option key={className} value={className}>{className}</option>
+              ))}
+            </select>
+            <select className="form-input" value={streamFilter} onChange={(e) => setStreamFilter(e.target.value)} style={{ width: '220px' }}>
+              <option value="">All Streams</option>
+              {availableStreams.map((streamName) => (
+                <option key={streamName} value={streamName}>{streamName}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div style={{ marginTop: '10px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            className="btn-secondary"
+            onClick={() => {
+              setSearchTerm('');
+              setDateFrom('');
+              setDateTo('');
+              setClassFilter(selectedClassFilter || '');
+              setStreamFilter('');
+            }}
+            disabled={!hasFilters}
+            style={{ padding: '8px 12px', fontSize: '13px' }}
+          >
+            Clear Filters
+          </button>
+          <button className="btn-secondary" onClick={fetchData} style={{ padding: '8px 12px', fontSize: '13px' }}>
+            Reload Reports
+          </button>
+          {!hasFilters && <span style={{ fontSize: '12px', color: 'var(--text-gray)' }}>No filters active</span>}
+        </div>
       </div>
 
       {viewMode === 'consolidated' && (
@@ -129,23 +268,42 @@ export default function AllReports() {
           </div>
 
           {filteredConsolidated.length === 0 ? (
-            <div className="card" style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-gray)' }}>
-              <FileText size={48} style={{ color: '#d1d5db', margin: '0 auto 16px' }} />
-              <div style={{ fontSize: '16px', fontWeight: '500', marginBottom: '8px' }}>No consolidated reports found</div>
-              <div style={{ fontSize: '14px' }}>Try adjusting your filters</div>
+            <div className="card" style={{ padding: '24px' }}>
+              <div style={{ textAlign: 'center', color: 'var(--text-gray)', marginBottom: recentStreamSubmissions.length > 0 ? '18px' : '0' }}>
+                <FileText size={48} style={{ color: '#d1d5db', margin: '0 auto 16px' }} />
+                <div style={{ fontSize: '16px', fontWeight: '500', marginBottom: '8px' }}>No consolidated reports found</div>
+                <div style={{ fontSize: '14px' }}>Weekly duty-head summary has not been submitted yet for this filter/date range.</div>
+              </div>
+
+              {recentStreamSubmissions.length > 0 && (
+                <div style={{ marginTop: '14px', borderTop: '1px solid #e5e7eb', paddingTop: '14px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>
+                    Reports received in duty flow (latest stream submissions)
+                  </div>
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    {recentStreamSubmissions.map((report) => (
+                      <div key={report.id} style={{ padding: '10px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#f9fafb' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                          <div style={{ fontWeight: '600' }}>{report.class_name}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-gray)' }}>{new Date(report.report_date).toLocaleDateString()}</div>
+                        </div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-gray)' }}>Teacher: {report.teacher_name}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '16px' }}>
-              {filteredConsolidated.map(report => (
+              {filteredConsolidated.map((report) => (
                 <div key={report.id} className="card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
                     <div>
                       <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: '600' }}>
                         Week of {new Date(report.week_start).toLocaleDateString()}
                       </h3>
-                      <div style={{ fontSize: '14px', color: 'var(--text-gray)' }}>
-                        Submitted by: {report.duty_head_name}
-                      </div>
+                      <div style={{ fontSize: '14px', color: 'var(--text-gray)' }}>Submitted by: {report.duty_head_name}</div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button onClick={() => setSelectedReport(report)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -153,6 +311,9 @@ export default function AllReports() {
                       </button>
                       <button onClick={() => exportExcel(report, 'consolidated_report')} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Download size={16} /> Excel
+                      </button>
+                      <button onClick={() => deleteConsolidatedReport(report.id)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: '#b91c1c' }}>
+                        <Trash2 size={16} /> Delete
                       </button>
                     </div>
                   </div>
@@ -186,7 +347,7 @@ export default function AllReports() {
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '16px' }}>
-              {filteredStream.map(report => (
+              {filteredStream.map((report) => (
                 <div key={report.id} className="card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
                     <div>
@@ -198,6 +359,9 @@ export default function AllReports() {
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button onClick={() => exportExcel(report, 'stream_report')} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Download size={16} /> Excel
+                      </button>
+                      <button onClick={() => deleteStreamReport(report.id)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: '#b91c1c' }}>
+                        <Trash2 size={16} /> Delete
                       </button>
                     </div>
                   </div>
@@ -251,7 +415,7 @@ export default function AllReports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {redStudents.map(student => (
+                    {redStudents.map((student) => (
                       <tr key={student.id}>
                         <td>{student.admission_no}</td>
                         <td>{student.full_name}</td>

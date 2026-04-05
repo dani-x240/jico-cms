@@ -363,6 +363,7 @@ export default function Login({ onLogin, securityQuestionsEnabled, refreshSecuri
       return;
     }
 
+    localStorage.setItem('passwordResetRequired', 'true');
     localStorage.setItem('user', JSON.stringify(recoveryUser));
     onLogin(recoveryUser);
   };

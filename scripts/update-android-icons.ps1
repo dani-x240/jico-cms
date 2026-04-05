@@ -53,4 +53,4 @@ if ($magick) {
     Write-Host "Copied ICO to mipmap folders. Recommend installing ImageMagick and re-running this script for proper PNGs."
 }
 
-Write-Host "Done. Rebuild the Android project (npm run build:mobile && npx cap sync android) and then assemble the release."dd
+Write-Host "Done. Rebuild the Android project (npm run build:mobile && npx cap sync android) and then assemble the release."

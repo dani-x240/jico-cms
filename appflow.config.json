@@ -1,19 +1,18 @@
 {
-  "apps": [
-    {
-      "id": "jinja-cms",
-      "name": "Jinja College CMS"
-    }
-  ],
+  "hooks": {
+    "build:before": [
+      "bash ./scripts/appflow-prebuild.sh"
+    ],
+    "package:before": [
+      "bash ./scripts/appflow-before-package.sh"
+    ]
+  },
   "build": {
     "web": {
       "pre_build": "bash ./scripts/appflow-prebuild.sh"
     },
-    "android": {
-      "pre_build": "bash ./scripts/appflow-prebuild.sh",
+    "native": {
       "before_package": "bash ./scripts/appflow-before-package.sh"
     }
-  },
-  "hooks": [],
-  "env": {}
+  }
 }
