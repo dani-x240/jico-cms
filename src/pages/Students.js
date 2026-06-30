@@ -195,7 +195,8 @@ export default function Students({ user }) {
 
   const loadStudents = async (schema = studentSchema) => {
     try {
-      const query = supabase.from('students').select('*');
+      const schoolId = user.school_id || user.id;
+      const query = supabase.from('students').select('*').eq('school_id', schoolId);
 
       const { data, error } = await query.order(schema.full_name ? 'full_name' : 'name');
       

@@ -13,7 +13,7 @@ import {
   validateSecurityQuestionState
 } from '../utils/securityQuestions';
 
-export default function Login({ onLogin, securityQuestionsEnabled, refreshSecurityQuestionAvailability }) {
+export default function Login({ onLogin, onNavigateToSchoolSignup, onNavigateToForgotPassword, securityQuestionsEnabled, refreshSecurityQuestionAvailability }) {
   const FAILED_LOGIN_ATTEMPTS_KEY = 'failedLoginAttempts';
   const [view, setView] = useState('login');
   const [loading, setLoading] = useState(false);
@@ -24,7 +24,7 @@ export default function Login({ onLogin, securityQuestionsEnabled, refreshSecuri
     return Number.isFinite(savedAttempts) ? savedAttempts : 0;
   });
 
-  const [loginData, setLoginData] = useState({ staff_id: '', password: '' });
+  const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [signupData, setSignupData] = useState({
     staff_id: '',
@@ -71,34 +71,64 @@ export default function Login({ onLogin, securityQuestionsEnabled, refreshSecuri
     resetFeedback();
 
     try {
+      // First try teacher login with email
       const { data, error } = await supabase
         .from('teachers')
         .select('*')
-        .eq('staff_id', loginData.staff_id)
+        .eq('email', loginData.email)
         .single();
 
-      if (error || !data) {
-        setError('Invalid Staff ID or password');
-        setFailedLoginAttempts((previous) => previous + 1);
-        setLoading(false);
-        return;
-      }
+      if (!error && data) {
+        // Teacher found, validate password
+        if (!data.approved) {
+          setError('⚠️ ACCOUNT PENDING APPROVAL\n\nYour account is waiting for administrator approval. You cannot login at this time.\n\nYou will be notified when approved.');
+          setFailedLoginAttempts((previous) => previous + 1);
+          setLoading(false);
+          return;
+        }
 
-      if (!data.approved) {
-        setError('⚠️ ACCOUNT PENDING APPROVAL\n\nYour account is waiting for administrator approval. You cannot login at this time.\n\nYou will be notified when approved.');
-        setFailedLoginAttempts((previous) => previous + 1);
-        setLoading(false);
-        return;
-      }
-
-      if (data.password === loginData.password) {
-        setFailedLoginAttempts(0);
-        localStorage.removeItem(FAILED_LOGIN_ATTEMPTS_KEY);
-        localStorage.setItem('user', JSON.stringify(data));
-        onLogin(data);
+        if (data.password === loginData.password) {
+          setFailedLoginAttempts(0);
+          localStorage.removeItem(FAILED_LOGIN_ATTEMPTS_KEY);
+          localStorage.setItem('user', JSON.stringify(data));
+          onLogin(data);
+        } else {
+          setError('Invalid email or password');
+          setFailedLoginAttempts((previous) => previous + 1);
+        }
       } else {
-        setError('Invalid Staff ID or password');
-        setFailedLoginAttempts((previous) => previous + 1);
+        // Try school admin login
+        const { data: schoolData, error: schoolError } = await supabase
+          .from('schools')
+          .select('*')
+          .eq('email', loginData.email)
+          .single();
+
+        if (!schoolError && schoolData) {
+          // School admin found
+          if (schoolData.password_hash === loginData.password) {
+            setFailedLoginAttempts(0);
+            localStorage.removeItem(FAILED_LOGIN_ATTEMPTS_KEY);
+            // Create user object for school admin
+            const schoolAdminUser = {
+              id: schoolData.id,
+              email: schoolData.email,
+              name: schoolData.name,
+              role: 'admin',
+              school_id: schoolData.id,
+              school_name: schoolData.name,
+              school_logo: schoolData.logo_url
+            };
+            localStorage.setItem('user', JSON.stringify(schoolAdminUser));
+            onLogin(schoolAdminUser);
+          } else {
+            setError('Invalid email or password');
+            setFailedLoginAttempts((previous) => previous + 1);
+          }
+        } else {
+          setError('Invalid email or password');
+          setFailedLoginAttempts((previous) => previous + 1);
+        }
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -475,13 +505,13 @@ export default function Login({ onLogin, securityQuestionsEnabled, refreshSecuri
         {view === 'login' ? (
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label className="form-label">Staff ID</label>
+              <label className="form-label">Email</label>
               <input
-                type="text"
+                type="email"
                 className="form-input"
-                value={loginData.staff_id}
-                onChange={(e) => setLoginData({...loginData, staff_id: e.target.value})}
-                placeholder="Enter your staff ID"
+                value={loginData.email}
+                onChange={(e) => setLoginData({...loginData, email: e.target.value})}
+                placeholder="Enter your email"
                 required
               />
             </div>
@@ -537,7 +567,7 @@ export default function Login({ onLogin, securityQuestionsEnabled, refreshSecuri
                 {failedLoginAttempts >= 3 ? 'Having trouble signing in?' : 'Forgot your password?'}
               </div>
               <span
-                onClick={openForgotPassword}
+                onClick={onNavigateToForgotPassword}
                 style={{
                   color: 'var(--primary)',
                   cursor: 'pointer',
@@ -558,6 +588,13 @@ export default function Login({ onLogin, securityQuestionsEnabled, refreshSecuri
               New teacher?{' '}
               <span onClick={() => changeView('signup')} style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: '600' }}>
                 Create account
+              </span>
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: '12px', fontSize: '13px', color: 'var(--text-gray)', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+              New school?{' '}
+              <span onClick={onNavigateToSchoolSignup} style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: '600' }}>
+                Register your school
               </span>
             </div>
           </form>

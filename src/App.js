@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
+import SchoolSignup from './pages/SchoolSignup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
 import Attendance from './pages/Attendance';
@@ -36,6 +39,7 @@ import './index.css';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [authView, setAuthView] = useState('login'); // 'login', 'school-signup', 'forgot-password', 'reset-password'
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedClassFilter, setSelectedClassFilter] = useState('');
@@ -340,9 +344,51 @@ function App() {
   }
 
   if (!user) {
+    if (authView === 'school-signup') {
+      return (
+        <SchoolSignup
+          onSignupSuccess={() => {
+            setAuthView('login');
+          }}
+          onBackToLogin={() => {
+            setAuthView('login');
+          }}
+        />
+      );
+    }
+
+    if (authView === 'forgot-password') {
+      return (
+        <ForgotPassword
+          onBackToLogin={() => {
+            setAuthView('login');
+          }}
+        />
+      );
+    }
+
+    if (authView === 'reset-password') {
+      return (
+        <ResetPassword
+          onResetSuccess={() => {
+            setAuthView('login');
+          }}
+          onBackToLogin={() => {
+            setAuthView('login');
+          }}
+        />
+      );
+    }
+
     return (
       <Login
         onLogin={handleLogin}
+        onNavigateToSchoolSignup={() => {
+          setAuthView('school-signup');
+        }}
+        onNavigateToForgotPassword={() => {
+          setAuthView('forgot-password');
+        }}
         securityQuestionsEnabled={securityQuestionsEnabled}
         refreshSecurityQuestionAvailability={refreshSecurityQuestionAvailability}
       />
