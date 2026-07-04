@@ -1,0 +1,211 @@
+================================================================================
+                    VSCODE AI ASSISTANT - QUICK CHEAT SHEET
+================================================================================
+
+WHAT TO TELL THE AI IN VSCODE:
+================================================================================
+
+PROMPT 1: "Understand My Project"
+------------------------------------
+I have a React Ionic CMS project. Read these files first:
+1. package.json
+2. src/App.js
+3. src/pages/Login.js
+4. database_schema_multitenant.sql
+
+Then tell me:
+- What this app does
+- Main features
+- Technology stack
+- Database type
+
+
+PROMPT 2: "Help Me Set It Up"
+------------------------------
+I want to set up this project. Help me with:
+
+1. DATABASE SETUP
+   - I have Supabase at: https://cwmbskmdqgsqbrfwfuen.supabase.co
+   - How do I run database_schema_multitenant.sql?
+   - Where exactly in Supabase?
+
+2. ENVIRONMENT VARIABLES
+   - Create .env.local
+   - What variables do I need?
+   - Where to get them from Supabase?
+
+3. INSTALL DEPENDENCIES
+   - Run: npm install
+   - What does this do?
+
+4. RUN LOCALLY
+   - Run: npm start
+   - What should I see?
+   - What URL opens?
+
+5. BUILD APK
+   - Run: npm run prepare:android
+   - Run: npm run build:mobile
+   - Where's the APK file?
+
+6. PUSH TO GITHUB
+   - Run: git add .
+   - Run: git commit -m "feat: setup complete"
+   - Run: git push origin school-cms-app
+
+
+PROMPT 3: "Test the App"
+------------------------
+After npm start runs, how do I test:
+1. Create a new school (signup)
+2. Login as school admin
+3. Upload and see a logo
+4. Create teacher account
+5. Login as teacher
+6. Check dashboard
+
+What should I see for each test?
+What could go wrong?
+
+
+PROMPT 4: "Build the APK"
+-------------------------
+I want to build the APK for my phone.
+
+Tell me:
+1. What is an APK?
+2. What do I need installed?
+3. Run: npm run prepare:android
+4. Run: npm run build:mobile
+5. Where's the APK file?
+6. How do I install it on my phone?
+7. What if it fails?
+
+
+PROMPT 5: "Push to GitHub"
+---------------------------
+I changed some files and want to push:
+
+Tell me:
+1. What does: git add . do?
+2. What does: git commit -m "..." do?
+3. What does: git push origin school-cms-app do?
+4. How do I know it pushed successfully?
+
+================================================================================
+
+FILES THE AI MUST READ:
+================================================================================
+
+CORE FILES (Read First):
+  √ package.json - Dependencies
+  √ src/App.js - Main app
+  √ COMPLETE_SETUP_INSTRUCTIONS.md - Setup guide
+  √ database_schema_multitenant.sql - Database
+
+IMPORTANT FILES:
+  √ src/pages/Login.js - Login system
+  √ src/pages/SchoolSignup.js - School signup
+  √ src/utils/supabase.js - Database connection
+  √ VSCODE_AI_PROMPTS.md - This guide
+
+================================================================================
+
+COMMANDS YOU'LL RUN:
+================================================================================
+
+# 1. Install dependencies (takes ~10 min)
+npm install
+
+# 2. Start the app
+npm start
+(Ctrl+C to stop)
+
+# 3. Build Android APK (takes ~20 min)
+npm run prepare:android
+npm run build:mobile
+
+# 4. Push to GitHub
+git add .
+git commit -m "feat: multi-tenant setup complete"
+git push origin school-cms-app
+
+================================================================================
+
+WHAT YOU SHOULD SEE:
+================================================================================
+
+After npm start:
+  ✓ Terminal shows: "Compiled successfully"
+  ✓ Browser opens to: http://localhost:3000
+  ✓ App shows login page
+  ✓ You can click "Register your school"
+
+After APK build:
+  ✓ Terminal shows success message
+  ✓ APK file in: android/app/build/outputs/apk/debug/app-debug.apk
+  ✓ You can transfer to phone and install
+
+================================================================================
+
+TIMELINE:
+================================================================================
+
+Database setup:        5 min
+Environment vars:      5 min
+npm install:          10 min
+npm start:             2 min
+Testing:              15 min
+APK build:            20 min
+GitHub push:           1 min
+                      ---
+TOTAL:               ~60 minutes
+
+================================================================================
+
+KEY THINGS TO TELL AI:
+================================================================================
+
+If it asks your Supabase URL:
+  Answer: https://cwmbskmdqgsqbrfwfuen.supabase.co
+
+If it asks about Node.js:
+  Run: node --version
+  If nothing shows, install from nodejs.org
+
+If it asks what database:
+  Answer: Supabase (PostgreSQL)
+
+If it asks about Android SDK:
+  Only needed for APK. Not needed for running locally.
+
+If something fails:
+  Ask AI: "I got this error: [paste error message]
+           What does it mean and how do I fix it?"
+
+================================================================================
+
+REMEMBER:
+================================================================================
+
+1. Read VSCODE_AI_PROMPTS.md for detailed prompts
+2. Let AI read the project files FIRST before running commands
+3. Do ONE step at a time
+4. Ask AI to explain EVERY error
+5. Don't skip the database setup - it's critical
+6. Test after each major step before moving forward
+
+================================================================================
+
+READY? START HERE:
+================================================================================
+
+1. Open VSCode
+2. Copy PROMPT 1 from VSCODE_AI_PROMPTS.md
+3. Paste into your AI assistant
+4. Let it analyze
+5. Follow its guidance step-by-step
+
+That's it! 🚀
+
+================================================================================
