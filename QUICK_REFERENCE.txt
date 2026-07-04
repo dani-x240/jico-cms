@@ -1,0 +1,172 @@
+===============================================================================
+                    JICO CMS - QUICK REFERENCE CARD
+===============================================================================
+
+STEP 1: DATABASE SETUP (5 minutes)
+-----------------------------------
+1. Go to: https://app.supabase.com
+2. Open SQL Editor → New Query
+3. Copy contents of: database_schema_multitenant.sql
+4. Paste into Supabase and click RUN
+5. Copy your Supabase URL and API keys (save in notepad)
+
+STEP 2: CLONE PROJECT (2 minutes)
+-----------------------------------
+cd Desktop
+git clone https://github.com/dani-x240/jico-cms.git
+cd jico-cms
+git checkout school-cms-app
+
+STEP 3: OPEN IN VSCODE (1 minute)
+-----------------------------------
+- Open VSCode
+- File → Open Folder → Select jico-cms
+- Terminal → New Terminal
+
+STEP 4: INSTALL DEPENDENCIES (5 minutes)
+-----------------------------------
+npm install
+npm install -g @capacitor/cli
+
+STEP 5: CREATE .env.local (1 minute)
+-----------------------------------
+In VSCode, create new file: .env.local
+
+Add these lines (replace with YOUR keys):
+REACT_APP_SUPABASE_URL=https://cwmbskmdqgsqbrfwfuen.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=your_key_here
+REACT_APP_SUPABASE_SERVICE_ROLE_KEY=your_key_here
+
+STEP 6: START DEVELOPMENT (2 minutes)
+-----------------------------------
+npm start
+- Browser opens at http://localhost:3000
+- You should see Login page
+
+STEP 7: TEST THE APP (5 minutes)
+-----------------------------------
+- Click "Register your school"
+- Fill all fields (School name, EMIS, location, address, email, password)
+- Sign up
+- Login with that email/password
+- Verify dashboard loads with your school name/logo
+
+STEP 8: ADD SCHOOL_ID FILTERING (15 minutes)
+-----------------------------------
+For each file that queries database:
+Teachers.js, Classes.js, Attendance.js, etc.
+
+Find: const { data, error } = await supabase.from('teachers').select('*');
+
+Replace with:
+const schoolId = user.school_id || user.id;
+const { data, error } = await supabase.from('teachers').select('*').eq('school_id', schoolId);
+
+STEP 9: COMMIT TO GITHUB (2 minutes)
+-----------------------------------
+git add .
+git commit -m "feat: add school_id filtering for multi-tenant isolation"
+git push origin school-cms-app
+
+STEP 10: BUILD APK (10 minutes)
+-----------------------------------
+npm run prepare:android
+npm run build:mobile
+
+Your APK: android/app/build/outputs/apk/debug/app-debug.apk
+
+===============================================================================
+ESSENTIAL FILES
+===============================================================================
+- database_schema_multitenant.sql .......... Database setup (RUN FIRST)
+- .env.local .............................. Environment variables
+- COMPLETE_SETUP_INSTRUCTIONS.md .......... Detailed guide
+- src/App.js .............................. Main app routing
+- src/pages/Login.js ....................... Email login form
+- src/pages/SchoolSignup.js ............... School registration
+- src/pages/ForgotPassword.js ............. Password reset request
+- src/pages/ResetPassword.js .............. Password reset form
+
+===============================================================================
+IMPORTANT NOTES
+===============================================================================
+✓ Always run database schema FIRST before starting the app
+✓ Use .env.local (not .env) for your credentials
+✓ Must add school_id filtering to ALL pages with database queries
+✓ School_id = user.school_id (for teachers) or user.id (for school admin)
+✓ Every Supabase query needs: .eq('school_id', schoolId)
+✓ Test signup, login, forgot password before building APK
+
+===============================================================================
+TROUBLESHOOTING QUICK FIXES
+===============================================================================
+Error: "Cannot find module 'supabase'"
+→ npm install @supabase/supabase-js
+
+Error: "REACT_APP_SUPABASE_URL is undefined"
+→ Check .env.local exists and is saved (Ctrl+S)
+→ Restart: Ctrl+C in terminal, then npm start
+
+Error: "Empty database results"
+→ Make sure database_schema_multitenant.sql was run
+→ Make sure school_id filtering was added to the page
+→ Make sure logged-in user has a school_id
+
+Error: "Cannot push to GitHub"
+→ git config user.email "your@email.com"
+→ git config user.name "Your Name"
+→ git push origin school-cms-app
+
+===============================================================================
+TERMINAL COMMANDS CHEAT SHEET
+===============================================================================
+git clone https://github.com/dani-x240/jico-cms.git
+git checkout school-cms-app
+npm install
+npm start
+npm run prepare:android
+npm run build:mobile
+git add .
+git commit -m "message"
+git push origin school-cms-app
+
+===============================================================================
+TIME BREAKDOWN
+===============================================================================
+Database Setup ............. 5 minutes
+Clone & Setup .............. 3 minutes
+Install Dependencies ....... 5 minutes
+Create .env.local .......... 1 minute
+Start Development .......... 2 minutes
+Test App ................... 5 minutes
+Add school_id filtering .... 15 minutes (depends on your code)
+Git Commit & Push .......... 2 minutes
+Build APK .................. 10 minutes
+---
+TOTAL: ~50 minutes
+
+===============================================================================
+WHAT YOU GET AT THE END
+===============================================================================
+✓ Fully functional multi-tenant CMS
+✓ Unlimited schools supported
+✓ Each school isolated data
+✓ Custom school logos
+✓ Email-based login (no Staff ID)
+✓ Secure password reset
+✓ School admin dashboard
+✓ Teacher management
+✓ All original features preserved
+✓ Android APK ready to install
+✓ Code in GitHub repository
+
+===============================================================================
+NEXT STEPS AFTER COMPLETION
+===============================================================================
+1. Install APK on Android phone (Enable USB Debugging)
+2. Test multi-school functionality
+3. Create more schools to test isolation
+4. Deploy to production when ready
+5. Share APK with your schools
+
+===============================================================================
